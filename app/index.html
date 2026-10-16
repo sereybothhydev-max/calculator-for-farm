@@ -1,0 +1,1296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculator for Farm</title>
+<meta name="theme-color" content="#1b1c1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Calculator for Farm">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* Layout: one card — name headers with color dots, kg cells, a dark totals band, and a toolbar footer. */
+:root {
+  --bg: #f4f5f6;
+  --card: #ffffff;
+  --ink: #16191c;
+  --muted: #8b9196;
+  --line: #e6e8ea;
+  --field-line: #e1e4e7;
+  --focus-bg: #fffbea;
+  --band: #121314;
+  --band-line: #26282a;
+  --band-ink: #ffffff;
+  --band-muted: #a3a8ad;
+  --grand: #1fd17a;
+  --key: #1d1f22;
+  --key-hover: #33373c;
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1112; --card: #181a1c; --ink: #eceef0; --muted: #868c92;
+    --line: #26292c; --field-line: #2f3236; --focus-bg: #2a2716;
+    --band: #0a0b0c; --band-line: #222426; --key: #2c3035; --key-hover: #3d4248; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1112; --card: #181a1c; --ink: #eceef0; --muted: #868c92;
+  --line: #26292c; --field-line: #2f3236; --focus-bg: #2a2716;
+  --band: #0a0b0c; --band-line: #222426; --key: #2c3035; --key-hover: #3d4248; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); }
+.wrap { max-width: 1200px; margin: 0 auto; padding-inline: 16px; padding-block: 24px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: max-content; table-layout: fixed; }
+th, td { padding: 0; width: 120px; min-width: 108px; }
+td + td, th + th { border-left: 1px solid var(--line); }
+
+thead th { text-align: left; padding: 8px 8px 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.head { display: flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c); }
+.name { flex: 1; min-width: 0; border: 1px solid var(--field-line); border-radius: 6px; background: var(--card); color: var(--ink); font: 700 0.9rem var(--sans); padding: 4px 6px; }
+.name::placeholder { color: var(--muted); font-weight: 500; }
+.trash { border: 0; background: transparent; color: var(--muted); padding: 2px; cursor: pointer; display: grid; place-items: center; border-radius: 4px; }
+.trash:hover { color: #d94040; }
+.trash svg { width: 14px; height: 14px; }
+.col { font: 600 0.68rem var(--mono); color: var(--muted); margin: 6px 0 0 16px; letter-spacing: 0.04em; }
+
+tbody td { padding: 6px; border-bottom: 1px solid var(--line); }
+.cell { position: relative; }
+.num { width: 100%; border: 1px solid var(--field-line); border-radius: 6px; background: var(--card); color: var(--ink); font: 400 0.82rem var(--mono); text-align: right; padding: 8px 10px 8px 8px; font-variant-numeric: tabular-nums; }
+.num::placeholder { color: var(--muted); opacity: .7; }
+.num:focus { outline: none; border: 2px solid var(--ink); padding: 7px 9px 7px 7px; background: var(--focus-bg); }
+.num.bad { border-color: #d94040; color: #d94040; }
+.unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 400 0.68rem var(--mono); color: var(--muted); pointer-events: none; }
+
+tfoot td { background: var(--band); color: var(--band-ink); }
+tfoot td + td { border-left-color: var(--band-line); }
+.tot { padding: 10px 6px 8px; text-align: right; border-bottom: 1px solid var(--band-line); }
+.tot .lbl { font: 700 0.66rem var(--sans); letter-spacing: 0.05em; color: var(--band-muted); }
+.tot .val { display: flex; align-items: center; justify-content: flex-end; gap: 5px; font: 700 0.86rem var(--mono); margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tot .val .dot { width: 7px; height: 7px; }
+.tot .meta { display: flex; justify-content: space-between; font: 400 0.62rem var(--mono); color: var(--band-muted); margin-top: 8px; }
+.grand { text-align: center; padding: 18px 12px; }
+.grand span { font: 700 0.8rem var(--sans); letter-spacing: 0.06em; color: var(--band-muted); vertical-align: middle; margin-right: 10px; }
+.grand strong { font: 700 1.5rem var(--mono); color: var(--grand); vertical-align: middle; font-variant-numeric: tabular-nums; }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+.btn { font: 600 0.85rem var(--sans); border: 1px solid var(--field-line); background: var(--card); color: var(--ink); border-radius: 7px; padding: 6px 12px; cursor: pointer; box-shadow: 0 1px 0 var(--line); }
+.btn:hover { border-color: var(--muted); }
+.ghost { font: 500 0.85rem var(--sans); border: 0; background: transparent; color: var(--muted); padding: 6px 8px; cursor: pointer; }
+.ghost:hover { color: var(--ink); }
+.ghost.armed { color: #d94040; }
+.unitbox { margin-left: auto; display: flex; align-items: center; gap: 6px; font: 400 0.75rem var(--mono); color: var(--muted); }
+.unitbox input { width: 52px; font: 700 0.75rem var(--mono); color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 3px 4px; }
+.unitbox input:hover, .unitbox input:focus { border-color: var(--field-line); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; justify-items: center; }
+.layout > .card { width: 100%; }
+.pad { background: #1b1c1f; border: 1px solid #2a2c30; border-radius: 18px; padding: 22px; display: grid; gap: 14px; max-width: 100%; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.pad-target { font: 600 0.85rem var(--mono); color: #8e949b; letter-spacing: 0.04em; text-align: center; min-height: 1em; }
+.keys { display: grid; grid-template-columns: repeat(3, 116px); gap: 14px; }
+.key { height: 76px; border: 1px solid #34363b; border-radius: 12px; background: #26272b; color: #ffffff; font: 700 1.7rem var(--sans); cursor: pointer; display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 2px 0 rgba(0,0,0,.35); transition: transform .05s, background .1s; }
+.key:hover { background: #303237; }
+.key:active { transform: translateY(1px); background: #383a40; }
+.key.clear { color: #ff5c6c; font-size: 1.4rem; }
+.key.plus { color: #ffb020; }
+.key.back svg { width: 28px; height: 28px; }
+.key.eq { background: #0f9e68; border-color: #0f9e68; box-shadow: 0 3px 0 #0a7049; }
+.key.eq:hover { background: #12b076; }
+.key.eq:active { background: #0c8a5a; }
+@media (max-width: 460px) { .pad { padding: 16px; width: 100%; } .keys { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .key { height: 64px; } }
+@media (prefers-reduced-motion: reduce) { .key { transition: none; } }
+/* Phones: keypad stays pinned at the bottom of the screen and the phone keyboard stays hidden. */
+@media (max-width: 700px), (pointer: coarse) and (max-width: 1000px) {
+  .wrap { padding-block: 12px 0; }
+  .pad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; width: 100%; max-width: none; margin: 0; border-radius: 16px 16px 0 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); gap: 8px; box-shadow: 0 -6px 20px rgba(0,0,0,.25); }
+  .keys { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .key { height: 54px; font-size: 1.45rem; }
+  .pad-target { font-size: 0.78rem; }
+  .grand { text-align: left; padding-left: 14px; }
+}
+.pad { transition: transform .22s ease; }
+.pad.dragging { transition: none; }
+.pad-handle { justify-self: stretch; display: grid; justify-items: center; gap: 6px; margin: -12px 0 -6px; padding: 8px 0 6px; background: transparent; border: 0; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.pad-handle:active { cursor: grabbing; }
+.pad-handle .grip { width: 48px; height: 5px; border-radius: 3px; background: #6b7078; }
+.pad-handle:hover .grip { background: #8e949b; }
+.pad-hint { display: none; font: 600 0.8rem var(--sans); color: #c9cdd2; letter-spacing: 0.02em; }
+.pad.closed { gap: 0; padding-block: 12px 10px; }
+.pad.closed .pad-target, .pad.closed .keys { display: none; }
+.pad.closed .pad-hint { display: block; }
+.pad.closed .pad-handle { margin: 0; padding: 2px 24px; }
+@media (prefers-reduced-motion: reduce) { .pad { transition: none; } }
+/* ---- Day bar, notes and archive ---- */
+.daybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.daybar input[type="date"] { font: 600 0.95rem var(--sans); color: var(--ink); background: var(--card); border: 1px solid var(--field-line); border-radius: 7px; padding: 6px 8px; min-height: 36px; }
+.note-box { flex: 1 1 90px; min-width: 0; max-width: 340px; font: 400 16px var(--sans); color: var(--ink); background: var(--card); border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 10px; min-height: 36px; }
+.note-box:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+.readonly .note-box { opacity: .65; }
+.daybar .step { width: 36px; height: 36px; padding: 0; font-size: 1.2rem; line-height: 1; }
+.daymeta { margin-left: auto; font: 400 0.75rem var(--mono); color: var(--muted); }
+.notice { margin: 0; padding: 8px 12px; font-size: 0.85rem; border-bottom: 1px solid var(--line); background: var(--focus-bg); color: var(--ink); }
+.notice.err { background: #fde8e8; color: #9b1c1c; }
+.readonly .num, .readonly .name { pointer-events: none; opacity: .65; }
+.readonly .bar button, .readonly .trash { visibility: hidden; }
+.archive:not(.reveal) { display: none; }   /* the Archive opens from the history list */
+.archive { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.archive > summary { cursor: pointer; padding: 12px 14px; font: 700 0.9rem var(--sans); list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.archive > summary::-webkit-details-marker { display: none; }
+.archive > summary span { font: 400 0.75rem var(--mono); color: var(--muted); }
+.archive-body { display: grid; gap: 10px; padding: 0 14px 14px; }
+.arch-list { display: grid; gap: 6px; max-height: 260px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.arch-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.85rem; }
+.arch-list .d { font: 600 0.82rem var(--mono); }
+.arch-list .n { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.arch-list .t { font: 600 0.82rem var(--mono); }
+.arch-list button { all: unset; cursor: pointer; display: contents; }
+.arch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.export-out { width: 100%; min-height: 110px; font: 400 0.72rem var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--field-line); border-radius: 8px; padding: 8px; }
+.arch-status { margin: 0; font: 400 0.75rem var(--mono); color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* ---- Phones: fit five columns on one screen ---- */
+@media (max-width: 700px) {
+  .wrap { padding-inline: 8px; }
+  #grid { table-layout: fixed; min-width: 0; width: max(100%, calc(var(--cols, 5) * 20%)); }
+  #grid th, #grid td { width: auto; min-width: 0; }
+  #grid thead th { padding: 6px 3px; }
+  #grid .head { flex-wrap: wrap; gap: 4px; }
+  #grid .head .name { order: 1; flex: 1 1 100%; width: 100%; font-size: 0.78rem; padding: 4px 3px; }
+  #grid .head .dot { order: 2; margin-left: 3px; }
+  #grid .head .trash { order: 3; margin-left: auto; padding: 0; }
+  #grid .head .trash svg { width: 13px; height: 13px; }
+  #grid .col { display: none; }
+  #grid tbody td { padding: 3px; }
+  #grid .num { font-size: 0.85rem; padding: 7px 4px; }
+  #grid .num:focus { padding: 6px 3px; }
+  #grid .tot { padding: 6px 3px; }
+  #grid .tot .lbl { font-size: 0.55rem; }
+  #grid .tot .val { font-size: 0.72rem; gap: 3px; }
+  #grid .tot .val .dot { display: none; }
+  #grid .tot .u { display: none; }
+  #grid .tot .meta { flex-direction: column; align-items: flex-end; gap: 1px; font-size: 0.56rem; margin-top: 4px; }
+  #grid .grand strong { font-size: 1.3rem; }
+}
+@media (max-width: 360px) {
+  #grid .num { font-size: 0.74rem; padding: 7px 2px; }
+  #grid .num:focus { padding: 6px 1px; }
+  #grid .tot .val { font-size: 0.62rem; }
+  #grid .tot .meta { font-size: 0.5rem; }
+}
+/* ---- History button + last-30-days sheet ---- */
+.hist-btn { margin-left: auto; position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--field-line); border-radius: 10px; background: var(--card); color: var(--ink); cursor: pointer; }
+.hist-btn:hover { border-color: var(--muted); }
+.new-btn { color: #0f9e68; }
+.calc-btn { margin-left: auto; }
+.new-btn + .hist-btn { margin-left: 0; }
+.hist-btn svg { width: 22px; height: 22px; }
+.hist-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #0f9e68; color: #fff; font: 700 0.66rem/18px var(--sans); text-align: center; }
+.hist-overlay { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+.hist-sheet { width: min(560px, 100%); max-height: 82vh; display: flex; flex-direction: column; background: var(--card); color: var(--ink); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0,0,0,.3); padding-bottom: env(safe-area-inset-bottom, 0px); }
+@media (min-width: 701px) { .hist-overlay { align-items: center; } .hist-sheet { border-radius: 16px; } }
+.hist-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.hist-head h2 { margin: 0; font: 700 1.05rem var(--sans); }
+.hist-head p { margin: 2px 0 0; font: 400 0.75rem var(--sans); color: var(--muted); }
+.hist-close { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 1.4rem; cursor: pointer; }
+.hist-close:hover { color: var(--ink); background: var(--bg); }
+.hist-list { list-style: none; margin: 0; padding: 8px 12px 12px; overflow: auto; display: grid; gap: 6px; }
+.hist-item { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); cursor: pointer; font: inherit; }
+.hist-item:hover { border-color: var(--muted); }
+.hist-item.current { border-color: #0f9e68; box-shadow: inset 3px 0 0 #0f9e68; }
+.hist-item .hd { font: 700 0.9rem var(--sans); }
+.hist-item .ht { font: 700 0.9rem var(--mono); text-align: right; }
+.hist-item .hn { font-size: 0.8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.hist-item .hl { font: 400 0.7rem var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+.hist-item .hl.soon { color: #d97706; }
+.hist-empty { padding: 18px 4px; color: var(--muted); font-size: 0.9rem; text-align: center; }
+.hist-foot { padding: 10px 16px 14px; border-top: 1px solid var(--line); font-size: 0.78rem; color: var(--muted); }
+.hist-foot button { all: unset; cursor: pointer; color: var(--ink); font-weight: 700; text-decoration: underline; }
+.hist-snap { margin: 4px 0 0 14px; }
+.hist-snap .hist-item { padding: 8px 12px; border-style: dashed; }
+.hist-snap .hd { font-weight: 600; font-size: 0.84rem; }
+.toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 40; background: #0f9e68; color: #fff; font: 600 0.88rem var(--sans); padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+/* ---- Press and hold to delete ---- */
+.hist-item { position: relative; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.hist-item::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: #e5484d; }
+.hist-item.holding::after { width: 100%; transition: width 3s linear; }
+.hist-item.holding { background: color-mix(in srgb, #e5484d 8%, var(--card)); }
+.hist-tip { margin: 0; padding: 0 16px 10px; font: 400 0.72rem var(--sans); color: var(--muted); }
+.confirm-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 16px; }
+.confirm-box { width: min(360px, 100%); background: var(--card); color: var(--ink); border-radius: 14px; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.35); display: grid; gap: 10px; }
+.confirm-box h3 { margin: 0; font: 700 1.05rem var(--sans); }
+.confirm-box p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.btn-danger { font: 700 0.9rem var(--sans); border: 0; border-radius: 8px; padding: 9px 16px; background: #e5484d; color: #fff; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .hist-item.holding::after { transition: none; } }
+/* ---- Full calculator under the table ---- */
+.calc { width: 100%; max-width: 480px; justify-self: center; background: #000; color: #fff; border-radius: 22px; padding: 12px 14px 14px; display: grid; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.calc-head { display: flex; align-items: center; justify-content: space-between; }
+.calc-head h2 { margin: 0; font: 700 0.95rem var(--sans); color: #d6d6d6; }
+.calc-head small { font: 400 0.72rem var(--sans); color: #8e8e93; }
+.calc-tape { list-style: none; margin: 0; padding: 0 2px 0 0; height: clamp(84px, 17vh, 150px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; text-align: right; font: 500 1.05rem/1.25 var(--sans); overflow-wrap: anywhere; }
+/* scroll by swiping, without a visible scrollbar */
+.calc-tape, .hist-list { scrollbar-width: none; -ms-overflow-style: none; }
+.calc-tape::-webkit-scrollbar, .hist-list::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.calc-tape li:first-child { margin-top: auto; }   /* newest entries sit at the bottom, older ones scroll up */
+.calc-tape li { flex: none; }
+.calc-tape li button { all: unset; cursor: pointer; display: block; width: 100%; }
+.calc-tape .ex { color: #8e8e93; }
+.calc-tape .rs { color: #fff; }
+.calc-tape .empty { color: #636366; font-size: 0.85rem; }
+.calc-expr { min-height: 1.3em; text-align: right; color: #8e8e93; font: 500 1rem var(--sans); overflow-wrap: anywhere; }
+.calc-display { text-align: right; font: 300 clamp(2rem, 9vw, 3rem)/1.05 var(--sans); letter-spacing: -0.02em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.calc-keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+.ck { border: 0; border-radius: 999px; height: clamp(46px, 7.4vh, 62px); min-height: 0; font: 400 clamp(1.4rem, 6vw, 2rem) var(--sans); cursor: pointer; display: grid; place-items: center; touch-action: manipulation; -webkit-user-select: none; user-select: none; transition: filter .08s; }
+.ck:active { filter: brightness(1.35); }
+.ck.dg { background: #fff; color: #000; font-size: clamp(1.7rem, 8vw, 2.5rem); }
+.ck.fn { background: #333336; color: #fff; font-size: clamp(1.1rem, 5vw, 1.6rem); }
+.ck.op { background: #f19a0e; color: #fff; font-size: clamp(1.6rem, 7vw, 2.3rem); }
+.ck.op.on { background: #fff; color: #f19a0e; }
+.ck.zero { grid-column: span 2; aspect-ratio: auto; justify-items: start; padding-left: 12%; }
+.ck.eq { grid-row: span 2; height: auto; background: #f19a0e; color: #fff; font-size: clamp(1.8rem, 8vw, 2.6rem); }
+.ck svg { width: 46%; height: 46%; }
+.ck.fn svg { color: #d1d1d6; }
+.calc.hide-tape .calc-tape { visibility: hidden; }   /* keep the same height */
+/* Calculator opens as a sheet from its button */
+.calc { display: none; }
+.calc.open { display: grid; position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; margin: 0 auto; max-height: 100%; overflow-y: auto; border-radius: 22px 22px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.calc.open { max-height: 88vh; box-shadow: 0 -8px 24px rgba(0,0,0,.3); }
+.calc-backdrop { position: fixed; inset: 0; z-index: 34; background: rgba(0,0,0,.5); }
+.calc-close { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #333336; color: #fff; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.calc-btn { color: #f19a0e; }
+/* Phones: compact calculator, about the size of the number keypad */
+@media (max-width: 700px) {
+  .calc.open { padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px)); gap: 5px; border-radius: 18px 18px 0 0; }
+  .calc-head h2 { font-size: 0.8rem; }
+  .calc-close { width: 28px; height: 28px; font-size: 1.1rem; }
+  .calc-tape { height: 62px; gap: 4px; font-size: 0.85rem; }
+  .calc-expr { min-height: 1.1em; font-size: 0.8rem; }
+  .calc-display { font-size: clamp(1.6rem, 8vw, 2.1rem); }
+  .calc-keys { gap: 6px; }
+  .ck { height: 40px; }
+  .ck.dg { font-size: 1.35rem; }
+  .ck.fn { font-size: 1rem; }
+  .ck.op { font-size: 1.5rem; }
+  .ck.eq { font-size: 1.6rem; }
+  .ck svg { width: 22px; height: 22px; }
+}
+/* Phones: compact top bar — note box and three small buttons on one line */
+@media (max-width: 700px) {
+  .daybar { flex-wrap: nowrap; gap: 6px; padding: 8px; }
+  .note-box { flex: 1 1 auto; min-width: 0; max-width: none; min-height: 34px; padding: 5px 9px; border-radius: 8px; }
+  .hist-btn { width: 34px; height: 34px; flex: none; border-radius: 8px; }
+  .hist-btn svg { width: 18px; height: 18px; }
+  .hist-badge { top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 4px; font-size: 0.58rem; line-height: 15px; }
+  #todayBtn { flex: none; padding: 6px 4px; font-size: 0.8rem; }
+}
+button:focus-visible, .name:focus-visible, .unitbox input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+html { -webkit-text-size-adjust: 100%; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+body { margin: 0; font-size: 14px; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+.key, .btn, .ghost { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.num, .name { font-size: 16px; } /* stops iPhone zooming in on tap */
+</style>
+</head>
+<body>
+
+<div class="wrap">
+ <div class="layout">
+  <div class="card" id="card">
+    <div class="daybar">
+      <label class="sr-only" for="dayNote">Note for this day</label>
+      <input class="note-box" id="dayNote" type="text" maxlength="200" autocomplete="off" placeholder="Write a note…">
+      <input type="hidden" id="dayDate">
+      <button class="ghost" id="todayBtn" type="button" hidden>Back to today</button>
+      <button class="hist-btn calc-btn" id="calcBtn" type="button" aria-label="Open calculator" title="Calculator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8 6.5h8v3H8z"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01"/></svg>
+      </button>
+      <button class="hist-btn new-btn" id="newPageBtn" type="button" aria-label="Save this page and start a new one" title="Save and start a new page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></svg>
+      </button>
+      <button class="hist-btn" id="historyBtn" type="button" aria-label="Last 30 days" title="Last 30 days">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
+        <span class="hist-badge" id="histBadge">0</span>
+      </button>
+    </div>
+    <p class="notice" id="dayNotice" hidden></p>
+    <div class="scroll" id="scroll">
+      <table id="grid">
+        <thead><tr id="headRow"></tr></thead>
+        <tbody id="body"></tbody>
+        <tfoot>
+          <tr id="totRow"></tr>
+          <tr><td class="grand" id="grandCell"><span>GRAND TOTAL:</span><strong id="grand">0.00 kg</strong></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="bar">
+      <button class="btn" id="addRow" type="button">+ Row</button>
+      <button class="btn" id="addCol" type="button">+ Column</button>
+      <button class="ghost" id="delRow" type="button">- Row</button>
+      <button class="ghost" id="clear" type="button">Clear</button>
+    </div>
+  </div>
+  <div class="calc-backdrop" id="calcBackdrop" hidden></div>
+  <section class="calc" id="calc" role="dialog" aria-modal="true" aria-label="Calculator">
+    <div class="calc-head"><h2>Calculator</h2><button class="calc-close" id="calcClose" type="button" aria-label="Close calculator">&times;</button></div>
+    <ul class="calc-tape" id="calcTape"></ul>
+    <div class="calc-expr" id="calcExpr"></div>
+    <div class="calc-display" id="calcDisplay" aria-live="polite">0</div>
+    <div class="calc-keys">
+      <button class="ck fn" type="button" data-c="ac" id="calcAC">AC</button>
+      <button class="ck fn" type="button" data-c="neg" aria-label="Change sign">+/−</button>
+      <button class="ck fn" type="button" data-c="pct" aria-label="Percent">%</button>
+      <button class="ck fn" type="button" data-c="back" aria-label="Delete last digit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <button class="ck fn" type="button" data-c="use" aria-label="Put the answer into the selected box" title="Put the answer into the selected box"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="18" r="2"/></svg></button>
+      <button class="ck dg" type="button" data-c="7">7</button>
+      <button class="ck dg" type="button" data-c="8">8</button>
+      <button class="ck dg" type="button" data-c="9">9</button>
+      <button class="ck op" type="button" data-c="/" aria-label="Divide">÷</button>
+      <button class="ck fn" type="button" data-c="clearTape" aria-label="Delete calculator history" title="Delete calculator history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg></button>
+      <button class="ck dg" type="button" data-c="4">4</button>
+      <button class="ck dg" type="button" data-c="5">5</button>
+      <button class="ck dg" type="button" data-c="6">6</button>
+      <button class="ck op" type="button" data-c="*" aria-label="Multiply">×</button>
+      <button class="ck fn" type="button" data-c="tape" aria-label="Show or hide calculator history" title="Show or hide history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></svg></button>
+      <button class="ck dg" type="button" data-c="1">1</button>
+      <button class="ck dg" type="button" data-c="2">2</button>
+      <button class="ck dg" type="button" data-c="3">3</button>
+      <button class="ck op" type="button" data-c="-" aria-label="Minus">−</button>
+      <button class="ck eq" type="button" data-c="=" aria-label="Equals">=</button>
+      <button class="ck dg zero" type="button" data-c="0">0</button>
+      <button class="ck dg" type="button" data-c=".">.</button>
+      <button class="ck op" type="button" data-c="+" aria-label="Plus">+</button>
+    </div>
+  </section>
+  <div class="pad" id="pad" aria-label="Number keypad">
+    <button class="pad-handle" id="padHandle" type="button" aria-label="Drag down to close the keypad, tap to open it"><span class="grip"></span><span class="pad-hint">Keypad</span></button>
+    <div class="pad-target" id="padTarget">Pick a box</div>
+    <div class="keys">
+      <button class="key clear" type="button" data-k="C" aria-label="Clear this box">C</button>
+      <button class="key back" type="button" data-k="back" aria-label="Backspace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-5 5M12 9l5 5"/></svg></button>
+      <button class="key plus" type="button" data-k="+" aria-label="Plus, next box">+</button>
+      <button class="key" type="button" data-k="7">7</button>
+      <button class="key" type="button" data-k="8">8</button>
+      <button class="key" type="button" data-k="9">9</button>
+      <button class="key" type="button" data-k="4">4</button>
+      <button class="key" type="button" data-k="5">5</button>
+      <button class="key" type="button" data-k="6">6</button>
+      <button class="key" type="button" data-k="1">1</button>
+      <button class="key" type="button" data-k="2">2</button>
+      <button class="key" type="button" data-k="3">3</button>
+      <button class="key" type="button" data-k="0">0</button>
+      <button class="key" type="button" data-k="." aria-label="Decimal point">.</button>
+      <button class="key eq" type="button" data-k="=" aria-label="Equals, then next row">=</button>
+    </div>
+  </div>
+ </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="confirm-overlay" id="confirmOverlay" hidden>
+  <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <h3 id="confirmTitle">Delete this page?</h3>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button class="btn" id="confirmCancel" type="button">Cancel</button>
+      <button class="btn-danger" id="confirmDelete" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="hist-overlay" id="histOverlay" hidden>
+  <div class="hist-sheet" role="dialog" aria-modal="true" aria-labelledby="histTitle">
+    <div class="hist-head">
+      <div><h2 id="histTitle">Last 30 days</h2><p>Every day is kept here for 30 days. Times are Cambodia time.</p></div>
+      <button class="hist-close" id="histClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="hist-tip">Tap to open. Press and hold for 3 seconds to delete.</p>
+    <ul class="hist-list" id="histList"></ul>
+  </div>
+</div>
+
+<script>
+/* =====================================================================================
+   FarmStore — on-device storage for day records, with a 30-day "archive before delete"
+   retention pipeline. Everything lives in this phone's storage (works offline).
+
+   Storage keys (localStorage):
+     farm-days-v1     active days, keyed by date      { schema, days: { "YYYY-MM-DD": Day } }
+     farm-archive-v1  archived days, keyed by date    { schema, records: { "YYYY-MM-DD": ArchivedDay } }
+     farm-meta-v1     bookkeeping                     { lastRetentionRun, lastArchived, migratedLegacy }
+
+   Day          = { date, names[], rows[][], unit, notes, createdAt, updatedAt, saved[] }   (ISO timestamps)
+   saved[]      = earlier pages of the day (New page or Clear): { savedAt, via: "new"|"clear", names[], rows[][], unit, notes }
+   ArchivedDay  = Day + { archivedAt, checksum }
+   ===================================================================================== */
+const FarmStore = (() => {
+  const DAYS_KEY = "farm-days-v1", ARCHIVE_KEY = "farm-archive-v1", META_KEY = "farm-meta-v1";
+  const LEGACY_KEY = "name-tally-v2";           // single-sheet data from the first app version
+  const SCHEMA = 1;
+  const RETENTION_DAYS = 30;
+
+  /* ---- dates: always the phone's local calendar day, as YYYY-MM-DD ---- */
+  const pad2 = n => String(n).padStart(2, "0");
+  const isoDate = d => d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  // All dates follow Cambodia time (Asia/Phnom_Penh, UTC+7, no daylight saving), whatever the phone is set to.
+  const KH_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const today = () => { const d = new Date(Date.now() + KH_OFFSET_MS); return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()); };
+  const isValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && isoDate(new Date(s + "T12:00:00")) === s;
+  function addDays(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoDate(d); }
+  /** Oldest date that is still "active". Anything strictly older gets archived. */
+  const cutoffDate = (now = today()) => addDays(now, -RETENTION_DAYS);
+
+  /* ---- raw storage: reads throw on corrupt data so we never overwrite what we cannot read ---- */
+  function readJSON(key, fallback) {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  }
+  const writeJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+
+  /** Stable fingerprint of a day's content (FNV-1a), used to prove the archive copy matches. */
+  function checksum(day) {
+    const s = JSON.stringify([day.date, day.names, day.rows, day.unit, day.notes, day.updatedAt, day.saved || []]);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, "0");
+  }
+
+  function loadDays() {
+    const store = readJSON(DAYS_KEY, { schema: SCHEMA, days: {} });
+    if (!store || typeof store.days !== "object") throw new Error("Saved days are unreadable");
+    return store;
+  }
+  function loadArchive() {
+    const a = readJSON(ARCHIVE_KEY, { schema: SCHEMA, records: {} });
+    if (!a || typeof a.records !== "object") throw new Error("Archive is unreadable");
+    return a;
+  }
+  const loadMeta = () => { try { return readJSON(META_KEY, {}) || {}; } catch (e) { return {}; } };
+  const saveMeta = m => { try { writeJSON(META_KEY, m); } catch (e) {} };
+
+  /** One-time move of the old single sheet into today's day record. The old key is left untouched. */
+  function migrateLegacy() {
+    const meta = loadMeta();
+    if (meta.migratedLegacy) return;
+    try {
+      const old = readJSON(LEGACY_KEY, null);
+      const store = loadDays();
+      if (old && Array.isArray(old.names) && Array.isArray(old.rows) && !Object.keys(store.days).length) {
+        const now = new Date().toISOString();
+        store.days[today()] = { date: today(), names: old.names, rows: old.rows, unit: old.unit || "kg",
+                                notes: "", createdAt: now, updatedAt: now };
+        writeJSON(DAYS_KEY, store);
+      }
+      meta.migratedLegacy = true; saveMeta(meta);
+    } catch (e) { /* leave everything as it was; try again next launch */ }
+  }
+
+  function getDay(date) { return loadDays().days[date] || null; }
+  function getArchived(date) { return loadArchive().records[date] || null; }
+  function listDates() { return Object.keys(loadDays().days).sort(); }
+
+  /** Save one day. Returns true on success, false if storage refused (full or blocked). */
+  function saveDay(day) {
+    try {
+      const store = loadDays();
+      day.updatedAt = new Date().toISOString();
+      if (!day.createdAt) day.createdAt = day.updatedAt;
+      store.days[day.date] = day;
+      writeJSON(DAYS_KEY, store);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /**
+   * Retention pipeline: "save before delete".
+   *  1. Find active days older than the 30-day window.
+   *  2. Copy them (with a checksum) into the archive and write the archive.
+   *  3. Read the archive back and confirm every copy is there with a matching checksum.
+   *  4. Only then remove those days from the active list.
+   * If any step fails, nothing is deleted and the error is returned. Safe to run any number
+   * of times: re-archiving a day just replaces its archive copy with an identical one.
+   */
+  function runRetention(now = today()) {
+    const cutoff = cutoffDate(now);
+    let store;
+    try { store = loadDays(); } catch (e) { return { ok: false, archived: 0, error: "Couldn't read saved days. Nothing was deleted." }; }
+    const expired = Object.keys(store.days).filter(d => d < cutoff).sort();
+    const meta = loadMeta();
+    meta.lastRetentionRun = new Date().toISOString();
+    if (!expired.length) { saveMeta(meta); return { ok: true, archived: 0 }; }
+
+    // Steps 2-3: archive and verify.
+    try {
+      const archive = loadArchive();
+      const archivedAt = new Date().toISOString();
+      const sums = {};
+      for (const date of expired) {
+        const day = store.days[date];
+        sums[date] = checksum(day);
+        archive.records[date] = Object.assign({}, day, { archivedAt, checksum: sums[date] });
+      }
+      writeJSON(ARCHIVE_KEY, archive);
+      const check = loadArchive();
+      for (const date of expired) {
+        const rec = check.records[date];
+        if (!rec || rec.checksum !== sums[date] || checksum(rec) !== sums[date]) throw new Error("verify failed for " + date);
+      }
+    } catch (e) {
+      saveMeta(meta);
+      const full = e && (e.name === "QuotaExceededError" || /quota/i.test(e.message || ""));
+      return { ok: false, archived: 0, error: full
+        ? "Phone storage is full, so old days couldn't be archived. Nothing was deleted. Export the archive and free some space."
+        : "Archiving old days failed. Nothing was deleted; it will try again next time." };
+    }
+
+    // Step 4: delete originals, only those we just verified.
+    try {
+      const fresh = loadDays();
+      for (const date of expired) delete fresh.days[date];
+      writeJSON(DAYS_KEY, fresh);
+    } catch (e) {
+      // The archive already holds safe copies; the originals simply stay until the next run.
+      saveMeta(meta);
+      return { ok: false, archived: 0, error: "Old days were archived but couldn't be removed yet. It will retry." };
+    }
+    meta.lastArchived = { at: meta.lastRetentionRun, dates: expired };
+    saveMeta(meta);
+    return { ok: true, archived: expired.length, dates: expired };
+  }
+
+  /* ---- exports ---- */
+  const sumCell = v => {
+    const s = String(v ?? "").replace(/[,\s]/g, "").replace(/\+$/, "");
+    if (!s) return null;
+    const parts = s.split("+");
+    return parts.every(p => /^-?(\d+\.?\d*|\.\d+)$/.test(p)) ? parts.reduce((t, p) => t + Number(p), 0) : null;
+  };
+  function archiveJSON() {
+    const a = loadArchive();
+    return JSON.stringify({ app: "Calculator for Farm", schema: SCHEMA, exportedAt: new Date().toISOString(),
+                            records: Object.values(a.records).sort((x, y) => x.date < y.date ? -1 : 1) }, null, 2);
+  }
+  function archiveCSV() {
+    const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = ["date,sheet,name,row,value,unit,note,archived_at"];
+    const recs = Object.values(loadArchive().records).sort((x, y) => x.date < y.date ? -1 : 1);
+    for (const r of recs) {
+      const sheets = (r.saved || []).map(sv => Object.assign({ label: (sv.via === "new" ? "page saved " : "cleared ") + sv.savedAt }, sv)).concat([Object.assign({ label: "last" }, r)]);
+      for (const sh of sheets) {
+        let wrote = false;
+        sh.rows.forEach((row, ri) => row.forEach((cell, ci) => {
+          const v = sumCell(cell);
+          if (v === null) return;
+          lines.push([r.date, sh.label, sh.names[ci] || "Name " + (ci + 1), ri + 1, v, sh.unit || r.unit, sh.notes, r.archivedAt].map(q).join(","));
+          wrote = true;
+        }));
+        if (!wrote && sh.label === "last") lines.push([r.date, sh.label, "", "", "", r.unit, r.notes, r.archivedAt].map(q).join(","));
+      }
+    }
+    return lines.join("\n");
+  }
+  function archiveSummary() {
+    const recs = Object.values(loadArchive().records).sort((x, y) => x.date < y.date ? 1 : -1);
+    return recs.map(r => ({ date: r.date, notes: r.notes || "", unit: r.unit,
+      total: r.rows.reduce((t, row) => t + row.reduce((s, c) => s + (sumCell(c) || 0), 0), 0) }));
+  }
+
+  /** Permanently remove one saved page (New page / Clear copy) from a day. */
+  function deleteSavedPage(date, idx) {
+    const store = loadDays();
+    const day = store.days[date];
+    if (!day || !day.saved || !day.saved[idx]) return false;
+    day.saved.splice(idx, 1);
+    day.updatedAt = new Date().toISOString();
+    writeJSON(DAYS_KEY, store);
+    return true;
+  }
+  /** Permanently remove a whole day, including its saved pages. */
+  function deleteDay(date) {
+    const store = loadDays();
+    if (!store.days[date]) return false;
+    delete store.days[date];
+    writeJSON(DAYS_KEY, store);
+    return true;
+  }
+
+  return { RETENTION_DAYS, deleteSavedPage, deleteDay, today, addDays, isValidDate, cutoffDate, migrateLegacy, getDay, getArchived,
+           listDates, saveDay, runRetention, archiveJSON, archiveCSV, archiveSummary, loadMeta };
+})();
+</script>
+
+<script>
+(function () {
+  const TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  const COLORS = ["#1a8fd6", "#22a35a", "#9b3fe0", "#ea6a1f", "#16968a", "#e0244f", "#5b47e0", "#c99a14", "#0e86c9", "#c2408f"];
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+  const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  /** Format a moment in Cambodia time. Falls back to a manual +7h shift if the phone lacks time-zone data. */
+  function khTime(date, opts) {
+    try { return new Date(date).toLocaleString([], Object.assign({ timeZone: "Asia/Phnom_Penh" }, opts)); }
+    catch (e) { return new Date(new Date(date).getTime() + 7 * 3600000).toLocaleString([], Object.assign({ timeZone: "UTC" }, opts)); }
+  }
+
+  // ---- Day handling: one record per calendar date (see FarmStore above) ----
+  const dateInput = document.getElementById("dayDate");
+  const notice = document.getElementById("dayNotice");
+  const card = document.getElementById("card");
+  let currentDate = FarmStore.today();
+  let readOnly = false;
+  let state;
+  let nameSaveTimer = null;
+
+  /** A new, empty day. Copies the names from the closest earlier day so you don't retype them. */
+  function blankDay(date) {
+    const earlier = FarmStore.listDates().filter(d => d < date).pop();
+    const prev = earlier && FarmStore.getDay(earlier);
+    const names = prev ? prev.names.slice() : ["", "", "", "", ""];
+    return { date, names, rows: Array.from({ length: 4 }, () => names.map(() => "")), unit: (prev && prev.unit) || "kg", notes: "" };
+  }
+  function showNotice(text, isError) {
+    notice.hidden = !text; notice.textContent = text || ""; notice.classList.toggle("err", !!isError);
+  }
+  function loadDate(date) {
+    if (!FarmStore.isValidDate(date)) date = FarmStore.today();
+    currentDate = date;
+    dateInput.value = date;
+    readOnly = date < FarmStore.cutoffDate();
+    let day = null;
+    try { day = readOnly ? FarmStore.getArchived(date) : FarmStore.getDay(date); }
+    catch (e) { showNotice("Saved data for this day couldn't be read. Nothing has been changed.", true); }
+    state = day ? JSON.parse(JSON.stringify(day)) : blankDay(date);
+    if (typeof state.unit !== "string") state.unit = "kg";
+    // "Name 1", "Name 2"… are only hints shown in grey; turn old saved defaults into empty boxes so you can type straight away.
+    if (!readOnly) state.names = state.names.map(n => /^Name \d+$/.test(String(n).trim()) ? "" : n);
+    if (typeof state.notes !== "string") state.notes = "";
+    card.classList.toggle("readonly", readOnly);
+    const nb = document.getElementById("dayNote");
+    nb.value = state.notes; nb.readOnly = readOnly;
+    document.getElementById("todayBtn").hidden = date === FarmStore.today();
+    if (readOnly) showNotice(day ? "This day is older than 30 days. It is in the archive and can only be viewed."
+                                 : "Days older than 30 days can't be edited. Pick a more recent date.", false);
+    else if (!notice.classList.contains("err")) showNotice("");
+    updateDayMeta();
+    render();
+  }
+  function updateDayMeta() {
+    let n = 0; try { n = FarmStore.listDates().length; } catch (e) {}
+    document.getElementById("histBadge").textContent = n;
+    document.getElementById("historyBtn").setAttribute("aria-label", "Last 30 days: " + n + (n === 1 ? " day" : " days") + " saved");
+  }
+
+  const save = () => {
+    if (readOnly) return;
+    state.date = currentDate;
+    if (!FarmStore.saveDay(state)) showNotice("Couldn't save: phone storage is full or blocked. Export the archive, then try again.", true);
+    else if (notice.classList.contains("err")) showNotice("");
+    updateDayMeta();
+  };
+  const parse = v => {
+    const s = String(v ?? "").replace(/[,\s]/g, "");
+    if (!s) return 0;
+    const parts = s.replace(/\+$/, "").split("+");
+    if (!parts.every(p => /^-?(\d+\.?\d*|\.\d+)$/.test(p))) return NaN;
+    return parts.reduce((t, p) => t + Number(p), 0);
+  };
+  const color = c => COLORS[c % COLORS.length];
+
+  const headRow = document.getElementById("headRow");
+  const body = document.getElementById("body");
+  const totRow = document.getElementById("totRow");
+
+  function render(focus) {
+    const cols = state.names.length;
+    headRow.innerHTML = "";
+    state.names.forEach((n, c) => {
+      const th = document.createElement("th");
+      th.style.setProperty("--c", color(c));
+      th.innerHTML = '<div class="head"><span class="dot"></span><input class="name" id="name-' + c + '" placeholder="Name ' + (c + 1) + '" aria-label="Name for column ' + (c + 1) + '"><button class="trash" type="button" title="Remove column" aria-label="Remove column ' + (c + 1) + '">' + TRASH + '</button></div><div class="col">Col ' + (c + 1) + '</div>';
+      const inp = th.querySelector(".name");
+      inp.value = n;
+      // Save names shortly after typing stops (and when leaving the box) instead of on every letter.
+      inp.addEventListener("input", () => { state.names[c] = inp.value; clearTimeout(nameSaveTimer); nameSaveTimer = setTimeout(save, 400); });
+      inp.addEventListener("blur", () => { if (nameSaveTimer) { clearTimeout(nameSaveTimer); nameSaveTimer = null; save(); } });
+      th.querySelector(".trash").addEventListener("click", () => {
+        if (state.names.length <= 1) return;
+        state.names.splice(c, 1);
+        state.rows.forEach(r => r.splice(c, 1));
+        save(); render();
+      });
+      headRow.appendChild(th);
+    });
+
+    body.innerHTML = "";
+    state.rows.forEach((row, r) => {
+      const tr = document.createElement("tr");
+      for (let c = 0; c < cols; c++) {
+        const td = document.createElement("td");
+        td.innerHTML = '<div class="cell"><input class="num" id="cell-' + r + '-' + c + '" inputmode="decimal" autocomplete="off" placeholder="0"></div>';
+        const inp = td.querySelector("input");
+        inp.setAttribute("aria-label", (state.names[c] || "Name " + (c + 1)) + ", row " + (r + 1));
+        if (TOUCH) inp.inputMode = "none";
+        inp.value = row[c] ?? "";
+        inp.classList.toggle("bad", Number.isNaN(parse(inp.value)));
+        inp.addEventListener("input", () => {
+          state.rows[r][c] = inp.value;
+          inp.classList.toggle("bad", Number.isNaN(parse(inp.value)));
+          save(); totals();
+        });
+        inp.addEventListener("keydown", e => {
+          if (e.key !== "Enter" && e.key !== "+") return;
+          e.preventDefault();
+          if (e.key === "+" && !inp.value.trim()) return;
+          goNext(r, c);
+        });
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    });
+
+    totRow.innerHTML = "";
+    for (let c = 0; c < cols; c++) {
+      const td = document.createElement("td");
+      td.className = "tot";
+      td.style.setProperty("--c", color(c));
+      td.innerHTML = '<div class="lbl">TOTAL</div><div class="val"><span class="dot"></span><span id="tv-' + c + '"></span></div><div class="meta"><span id="te-' + c + '"></span><span id="tp-' + c + '"></span></div>';
+      totRow.appendChild(td);
+    }
+    document.getElementById("grandCell").colSpan = cols;
+    document.getElementById("grid").style.setProperty("--cols", Math.max(cols, 5));
+    totals();
+
+    if (focus) {
+      const el = focus.name != null ? document.getElementById("name-" + focus.name) : document.getElementById("cell-" + focus.r + "-" + focus.c);
+      if (el) el.focus();
+    }
+  }
+
+  function totals() {
+    const sums = state.names.map((_, c) => {
+      let sum = 0, count = 0;
+      state.rows.forEach(row => { const raw = String(row[c] ?? "").trim(); const v = parse(raw); if (raw && !Number.isNaN(v)) { sum += v; count++; } });
+      return { sum, count };
+    });
+    const grand = sums.reduce((a, s) => a + s.sum, 0);
+    sums.forEach((s, c) => {
+      const tv = document.getElementById("tv-" + c);
+      tv.textContent = fmt(s.sum);
+      const u = document.createElement("small"); u.className = "u"; u.textContent = " " + state.unit; tv.appendChild(u);
+      document.getElementById("te-" + c).textContent = s.count + (s.count === 1 ? " entry" : " entries");
+      document.getElementById("tp-" + c).textContent = (grand ? Math.round((s.sum / grand) * 100) : 0) + "%";
+    });
+    document.getElementById("grand").textContent = fmt(grand) + " " + state.unit;
+  }
+
+  function goNext(r, c) {
+    if (r === state.rows.length - 1) { addRow(); render({ r: r + 1, c }); }
+    else document.getElementById("cell-" + (r + 1) + "-" + c).focus();
+  }
+  function addRow() { state.rows.push(state.names.map(() => "")); save(); }
+
+  document.getElementById("addRow").addEventListener("click", () => { addRow(); render({ r: state.rows.length - 1, c: 0 }); });
+  document.getElementById("delRow").addEventListener("click", () => {
+    if (state.rows.length <= 1) return;
+    state.rows.pop(); save(); render();
+  });
+  document.getElementById("addCol").addEventListener("click", () => {
+    state.names.push("");
+    state.rows.forEach(r => r.push(""));
+    save(); render({ name: state.names.length - 1 });
+    document.getElementById("scroll").scrollLeft = 1e6;
+  });
+
+  /** Copy the current page (names, numbers, note) into today's history with its date and time. */
+  function keepPage(via) {
+    const calcTape = (via === "new" && window.FarmCalc) ? window.FarmCalc.tape : undefined;
+    state.saved = (state.saved || []).concat([{ savedAt: new Date().toISOString(), via, calcTape, names: state.names.slice(),
+      rows: JSON.parse(JSON.stringify(state.rows)), unit: state.unit, notes: state.notes || "" }]);
+    save();
+    return !notice.classList.contains("err");
+  }
+
+  // New page: save this page with its date and time, then start a completely empty one.
+  document.getElementById("newPageBtn").addEventListener("click", () => {
+    if (readOnly) { loadDate(FarmStore.today()); }
+    const hasData = state.rows.some(r => r.some(c => String(c ?? "").trim())) || String(state.notes || "").trim() || state.names.some(n => String(n || "").trim());
+    if (!hasData) { toast("This page is empty. Start typing."); return; }
+    if (!keepPage("new")) return;
+    // A completely fresh page: 5 empty names, 4 empty rows, no note.
+    state.names = ["", "", "", "", ""];
+    state.rows = Array.from({ length: 4 }, () => state.names.map(() => ""));
+    state.notes = "";
+    document.getElementById("dayNote").value = "";
+    if (window.FarmCalc) window.FarmCalc.reset();   // the calculator starts fresh too
+    save(); render();
+    const when = khTime(Date.now(), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    toast("Page saved · " + when + " · new page started");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  const clearBtn = document.getElementById("clear");
+  let armTimer;
+  clearBtn.addEventListener("click", () => {
+    if (readOnly) return;
+    const hasNumbers = state.rows.some(r => r.some(c => String(c ?? "").trim()));
+    if (hasNumbers && !keepPage("clear")) return;          // saving failed: keep the numbers, don't clear
+    state.rows = state.rows.map(r => r.map(() => ""));
+    save(); render();
+    if (hasNumbers) toast("Saved to history, then cleared");
+  });
+
+  // Keypad: types into the last number box you clicked.
+  let active = { r: 0, c: 0 };
+  const padTarget = document.getElementById("padTarget");
+  function showTarget() {
+    const n = state.names[active.c] || "Name " + (active.c + 1);
+    padTarget.textContent = n + " · row " + (active.r + 1);
+  }
+  body.addEventListener("focusin", e => {
+    const m = e.target.id && e.target.id.match(/^cell-(\d+)-(\d+)$/);
+    if (m) { active = { r: +m[1], c: +m[2] }; showTarget(); }
+  });
+  document.querySelectorAll(".key").forEach(btn => {
+    btn.addEventListener("mousedown", e => e.preventDefault());
+    btn.addEventListener("click", () => {
+      if (readOnly) return;
+      if (active.r >= state.rows.length) active.r = state.rows.length - 1;
+      if (active.c >= state.names.length) active.c = state.names.length - 1;
+      const { r, c } = active;
+      const k = btn.dataset.k;
+      const inp = document.getElementById("cell-" + r + "-" + c);
+      let v = inp.value;
+      if (k === "=" || k === "+") {
+        const n = parse(v);
+        if (!Number.isNaN(n) && v.includes("+")) { inp.value = String(Math.round(n * 1e6) / 1e6); inp.dispatchEvent(new Event("input")); }
+        if (k === "+" && !inp.value.trim()) { inp.focus(); return; }
+        goNext(r, c);
+        return;
+      }
+      const last = (v.split("+").pop()) || "";
+      if (k === "C") v = "";
+      else if (k === "back") v = v.slice(0, -1);
+      else if (k === ".") { if (!last.includes(".")) v += last ? "." : "0."; }
+      else v = v === "0" ? k : v + k;
+      inp.value = v;
+      inp.dispatchEvent(new Event("input"));
+      inp.focus();
+    });
+  });
+
+  // Drag the handle down to close the keypad; tap it (or drag up) to open again.
+  const pad = document.getElementById("pad");
+  const handle = document.getElementById("padHandle");
+  let startY = null, dy = 0;
+  const openPad = () => pad.classList.remove("closed");
+  const closePad = () => pad.classList.add("closed");
+  handle.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    startY = e.clientY; dy = 0;
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    pad.classList.add("dragging");
+  });
+  handle.addEventListener("pointermove", e => {
+    if (startY === null) return;
+    dy = e.clientY - startY;
+    if (!pad.classList.contains("closed")) pad.style.transform = "translateY(" + Math.max(0, dy) + "px)";
+  });
+  const endDrag = () => {
+    if (startY === null) return;
+    startY = null;
+    pad.classList.remove("dragging");
+    pad.style.transform = "";
+    const tap = Math.abs(dy) < 6;
+    if (pad.classList.contains("closed")) { if (tap || dy < -20) openPad(); }
+    else if (dy > 50 || tap) closePad();
+  };
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+  // Opening the number keypad: switch instantly (no slide animation) so moving from the phone keyboard feels smooth.
+  body.addEventListener("focusin", e => {
+    if (!(e.target.classList && e.target.classList.contains("num"))) return;
+    if (!pad.classList.contains("closed")) return;
+    pad.classList.add("dragging");
+    openPad();
+    requestAnimationFrame(() => requestAnimationFrame(() => pad.classList.remove("dragging")));
+  });
+  // Let the phone keyboard float over the page instead of squeezing it, which avoids a jumpy relayout.
+  try { if ("virtualKeyboard" in navigator) navigator.virtualKeyboard.overlaysContent = true; } catch (e) {}
+
+  // Keep the page content clear of the keypad when it is pinned to the bottom.
+  const fitPad = () => {
+    // Leave room at the bottom for whichever panel is docked there (number keypad or calculator).
+    const calcOpen = document.getElementById("calc").classList.contains("open");
+    const fixed = getComputedStyle(pad).position === "fixed";
+    document.body.style.paddingBottom = calcOpen ? document.getElementById("calc").offsetHeight + 12 + "px"
+                                      : fixed ? pad.offsetHeight + 12 + "px" : "";
+  };
+  if (window.ResizeObserver) { const ro = new ResizeObserver(fitPad); ro.observe(pad); ro.observe(document.getElementById("calc")); }
+  window.addEventListener("resize", fitPad);
+
+
+  // ---- History: every saved day from the last 30 days ----
+  const histOverlay = document.getElementById("histOverlay");
+  const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000);
+  function prettyDate(iso) {
+    const d = new Date(iso + "T12:00:00Z");
+    const t = FarmStore.today();
+    const label = d.toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    if (iso === t) return "Today · " + label;
+    if (iso === FarmStore.addDays(t, -1)) return "Yesterday · " + label;
+    return label;
+  }
+  function dayTotal(day) {
+    return day.rows.reduce((t, row) => t + row.reduce((s, c) => { const v = parse(c); return s + (Number.isNaN(v) ? 0 : v); }, 0), 0);
+  }
+  function openHistory() {
+    const list = document.getElementById("histList");
+    list.innerHTML = "";
+    let dates = [];
+    try { dates = FarmStore.listDates().slice().reverse(); } catch (e) {}
+    const t = FarmStore.today();
+    dates.forEach(date => {
+      const day = FarmStore.getDay(date); if (!day) return;
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "hist-item" + (date === currentDate ? " current" : "");
+      b.innerHTML = '<span class="hd"></span><span class="ht"></span><span class="hn"></span><span class="hl"></span>';
+      b.querySelector(".hd").textContent = prettyDate(date);
+      b.querySelector(".ht").textContent = fmt(dayTotal(day)) + " " + (day.unit || "kg");
+      b.querySelector(".hn").textContent = day.notes || " ";
+      const left = daysBetween(t, FarmStore.addDays(date, FarmStore.RETENTION_DAYS + 1));
+      const hl = b.querySelector(".hl");
+      hl.textContent = left <= 0 ? "archiving now" : left === 1 ? "1 day left" : left + " days left";
+      hl.classList.toggle("soon", left <= 3);
+      b.addEventListener("click", () => { closeHistory(); loadDate(date); window.scrollTo({ top: 0, behavior: "smooth" }); });
+      attachHold(b, () => askDelete("Delete this day?", prettyDate(date) + " — " + fmt(dayTotal(day)) + " " + (day.unit || "kg") +
+        ((day.saved || []).length ? ", plus " + day.saved.length + " saved page" + (day.saved.length === 1 ? "" : "s") : "") + ". This can't be undone.",
+        () => FarmStore.deleteDay(date)));
+      li.appendChild(b); list.appendChild(li);
+      (day.saved || []).slice().reverse().forEach((sv, i, arr) => {
+        const idx = arr.length - 1 - i;
+        const sli = document.createElement("li"); sli.className = "hist-snap";
+        const sb = document.createElement("button"); sb.type = "button"; sb.className = "hist-item";
+        sb.innerHTML = '<span class="hd"></span><span class="ht"></span><span class="hn"></span><span class="hl"></span>';
+        sb.querySelector(".hd").textContent = (sv.via === "new" ? "Page saved at " : "Cleared at ") + khTime(sv.savedAt, { hour: "2-digit", minute: "2-digit" });
+        sb.querySelector(".ht").textContent = fmt(dayTotal(sv)) + " " + (sv.unit || "kg");
+        sb.querySelector(".hn").textContent = sv.notes || " ";
+        sb.querySelector(".hl").textContent = "saved sheet";
+        sb.addEventListener("click", () => { closeHistory(); viewSnapshot(date, idx); window.scrollTo({ top: 0, behavior: "smooth" }); });
+        attachHold(sb, () => askDelete("Delete this page?", sb.querySelector(".hd").textContent + " — " + fmt(dayTotal(sv)) + " " + (sv.unit || "kg") +
+          (sv.notes ? " (" + sv.notes + ")" : "") + ". This can't be undone.", () => FarmStore.deleteSavedPage(date, idx)));
+        sli.appendChild(sb); list.appendChild(sli);
+      });
+    });
+    if (!list.children.length) { const li = document.createElement("li"); li.className = "hist-empty"; li.textContent = "No saved days yet. Numbers you enter are saved here automatically."; list.appendChild(li); }
+    histOverlay.hidden = false;
+    document.getElementById("histClose").focus();
+  }
+  function closeHistory() { histOverlay.hidden = true; }
+
+  // ---- Press and hold a history row for 3 seconds to delete it ----
+  const HOLD_MS = 3000;
+  let pendingDelete = null;
+  const confirmOverlay = document.getElementById("confirmOverlay");
+  function attachHold(btn, onHold) {
+    let timer = null, startX = 0, startY = 0, downAt = 0;
+    btn.dataset.held = "";
+    const cancel = () => { clearTimeout(timer); timer = null; btn.classList.remove("holding"); };
+    btn.addEventListener("pointerdown", e => {
+      startX = e.clientX; startY = e.clientY; btn.dataset.held = ""; downAt = Date.now();
+      btn.classList.add("holding");
+      timer = setTimeout(() => { timer = null; btn.classList.remove("holding"); btn.dataset.held = "1"; if (navigator.vibrate) navigator.vibrate(40); onHold(); }, HOLD_MS);
+    });
+    btn.addEventListener("pointermove", e => { if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > 12) cancel(); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(t => btn.addEventListener(t, cancel));
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    // A hold (finished or let go early) must not also open the page; only a quick tap opens it.
+    btn.addEventListener("click", e => { if (btn.dataset.held || (downAt && Date.now() - downAt > 600)) { e.stopImmediatePropagation(); e.preventDefault(); btn.dataset.held = ""; } }, true);
+  }
+  function askDelete(title, text, action) {
+    pendingDelete = action;
+    document.getElementById("confirmTitle").textContent = title;
+    document.getElementById("confirmText").textContent = text;
+    confirmOverlay.hidden = false;
+    document.getElementById("confirmCancel").focus();
+  }
+  function closeConfirm() { confirmOverlay.hidden = true; pendingDelete = null; }
+  document.getElementById("confirmCancel").addEventListener("click", closeConfirm);
+  confirmOverlay.addEventListener("click", e => { if (e.target === confirmOverlay) closeConfirm(); });
+  document.getElementById("confirmDelete").addEventListener("click", () => {
+    const action = pendingDelete; closeConfirm();
+    if (!action) return;
+    let ok = false;
+    try { ok = action(); } catch (e) { ok = false; }
+    if (!ok) { toast("Couldn't delete. Please try again."); return; }
+    // Keep the screen in step with what is stored, so a later save can't bring deleted data back.
+    const wasViewing = readOnly;
+    if (wasViewing) { showNotice(""); loadDate(FarmStore.today()); }
+    else {
+      const fresh = FarmStore.getDay(currentDate);
+      if (fresh) state.saved = fresh.saved || [];
+      else loadDate(currentDate);
+    }
+    updateDayMeta();
+    toast("Deleted");
+    openHistory();
+  });
+
+
+  /** Show a sheet that was saved when Clear was pressed (view only). */
+  function viewSnapshot(date, idx) {
+    const day = FarmStore.getDay(date);
+    const sv = day && day.saved && day.saved[idx];
+    if (!sv) return;
+    loadDate(date);
+    readOnly = true;
+    state = Object.assign({}, JSON.parse(JSON.stringify(sv)), { date });
+    card.classList.add("readonly");
+    const nb = document.getElementById("dayNote"); nb.value = sv.notes || ""; nb.readOnly = true;
+    document.getElementById("todayBtn").hidden = false;
+    showNotice((sv.via === "new" ? "Page saved at " : "Saved when Clear was pressed at ") + khTime(sv.savedAt, { hour: "2-digit", minute: "2-digit" }) + ". View only.", false);
+    render();
+  }
+
+  let toastTimer;
+  function toast(text) {
+    const t = document.getElementById("toast");
+    t.textContent = text; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
+  }
+
+  // Save again whenever the app is closed or sent to the background (each change is also saved as you type).
+  const saveOnLeave = () => { if (!readOnly && state) save(); };
+  window.addEventListener("pagehide", saveOnLeave);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveOnLeave(); });
+  document.getElementById("historyBtn").addEventListener("click", openHistory);
+  document.getElementById("histClose").addEventListener("click", closeHistory);
+  histOverlay.addEventListener("click", e => { if (e.target === histOverlay) closeHistory(); });
+  document.addEventListener("keydown", e => { if (e.key !== "Escape") return; if (!confirmOverlay.hidden) closeConfirm(); else if (!histOverlay.hidden) closeHistory(); });
+
+
+  // =================== Full calculator ===================
+  // Tokens alternate number / operator. Numbers are kept as typed strings; × and ÷ are done before + and −.
+  (function setupCalculator() {
+    const TAPE_KEY = "farm-calc-history-v1";
+    const OPS = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+    const calcEl = document.getElementById("calc");
+    const display = document.getElementById("calcDisplay");
+    const exprEl = document.getElementById("calcExpr");
+    const tapeEl = document.getElementById("calcTape");
+    const acBtn = document.getElementById("calcAC");
+    let tokens = ["0"];          // e.g. ["12", "+", "3.5", "*", "2"]
+    let justDone = false;        // true right after "=", so a digit starts fresh
+    let tape = [];
+    try { tape = JSON.parse(localStorage.getItem(TAPE_KEY)) || []; } catch (e) { tape = []; }
+    const saveTape = () => { try { localStorage.setItem(TAPE_KEY, JSON.stringify(tape.slice(-100))); } catch (e) {} };
+
+    const isOp = t => t in OPS;
+    const last = () => tokens[tokens.length - 1];
+    const round = n => Math.round(n * 1e10) / 1e10;
+    function fmtNum(str) {
+      if (str === "Error") return str;
+      const neg = str.startsWith("-"); let s = neg ? str.slice(1) : str;
+      let [i, d] = s.split(".");
+      i = (i || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return (neg ? "-" : "") + i + (d !== undefined ? "." + d : "");
+    }
+    const numStr = n => {
+      if (!Number.isFinite(n)) return "Error";
+      const r = round(n);
+      return Math.abs(r) >= 1e15 ? r.toExponential(6) : String(r);
+    };
+    const exprText = toks => toks.map(t => isOp(t) ? OPS[t] : fmtNum(t)).join("");
+
+    function evaluate(toks) {
+      const t = toks.slice();
+      if (isOp(t[t.length - 1])) t.pop();
+      // × and ÷ first
+      const stack = [parseFloat(t[0])];
+      for (let i = 1; i < t.length; i += 2) {
+        const op = t[i], v = parseFloat(t[i + 1]);
+        if (op === "*") stack[stack.length - 1] *= v;
+        else if (op === "/") stack[stack.length - 1] = v === 0 ? NaN : stack[stack.length - 1] / v;
+        else stack.push(op === "-" ? -v : v);
+      }
+      return stack.reduce((a, b) => a + b, 0);
+    }
+
+    function show() {
+      const cur = isOp(last()) ? tokens[tokens.length - 2] : last();
+      display.textContent = fmtNum(cur);
+      exprEl.textContent = tokens.length > 1 ? exprText(tokens) : "";
+      acBtn.textContent = (isOp(last()) || last() === "0" || justDone) ? "AC" : "C";
+      calcEl.querySelectorAll(".ck.op").forEach(b => b.classList.toggle("on", isOp(last()) && b.dataset.c === last()));
+    }
+    function renderTape() {
+      tapeEl.innerHTML = "";
+      if (!tape.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Your calculations will appear here."; tapeEl.appendChild(li); return; }
+      tape.forEach(item => {
+        const li = document.createElement("li");
+        const b = document.createElement("button"); b.type = "button";
+        b.innerHTML = '<span class="ex"></span><span class="rs"></span>';
+        b.querySelector(".ex").textContent = item.expr + "=";
+        b.querySelector(".rs").textContent = fmtNum(item.result);
+        b.addEventListener("click", () => { tokens = [item.result]; justDone = true; show(); });
+        li.appendChild(b); tapeEl.appendChild(li);
+      });
+      tapeEl.scrollTop = tapeEl.scrollHeight;
+    }
+
+    function press(k) {
+      if (display.textContent === "Error" && k !== "ac") { tokens = ["0"]; justDone = false; }
+      if (/^[0-9]$/.test(k)) {
+        if (justDone) { tokens = ["0"]; justDone = false; }
+        if (isOp(last())) tokens.push(k);
+        else if (last() === "0") tokens[tokens.length - 1] = k;
+        else if (last() === "-0") tokens[tokens.length - 1] = "-" + k;
+        else if (last().replace(/[-.]/g, "").length < 15) tokens[tokens.length - 1] += k;
+      } else if (k === ".") {
+        if (justDone) { tokens = ["0"]; justDone = false; }
+        if (isOp(last())) tokens.push("0.");
+        else if (!last().includes(".")) tokens[tokens.length - 1] += ".";
+      } else if (isOp(k)) {
+        justDone = false;
+        if (isOp(last())) tokens[tokens.length - 1] = k;
+        else tokens.push(k);
+      } else if (k === "=") {
+        if (tokens.length < 3) { justDone = true; show(); return; }
+        const expr = exprText(isOp(last()) ? tokens.slice(0, -1) : tokens);
+        const result = numStr(evaluate(tokens));
+        if (result !== "Error") { tape.push({ expr, result, at: new Date().toISOString() }); saveTape(); renderTape(); }
+        tokens = [result === "Error" ? "0" : result]; justDone = true;
+        show(); if (result === "Error") display.textContent = "Error";
+        return;
+      } else if (k === "ac") {
+        // C clears the number you're typing; AC clears everything.
+        if (acBtn.textContent === "AC") tokens = ["0"];
+        else tokens[tokens.length - 1] = "0";
+        justDone = false;
+      } else if (k === "back") {
+        if (justDone) { justDone = false; }
+        if (isOp(last())) tokens.pop();
+        else {
+          const s = last().slice(0, -1);
+          tokens[tokens.length - 1] = (s === "" || s === "-") ? "0" : s;
+        }
+      } else if (k === "neg") {
+        if (isOp(last())) tokens.push("-0");
+        else tokens[tokens.length - 1] = last().startsWith("-") ? last().slice(1) : "-" + last();
+        justDone = false;
+      } else if (k === "pct") {
+        if (isOp(last())) return;
+        const v = parseFloat(last());
+        const op = tokens[tokens.length - 2];
+        // a + b%  ->  a + (a × b / 100);   a × b%  ->  a × (b / 100)
+        const base = (op === "+" || op === "-") ? evaluate(tokens.slice(0, -2)) : 1;
+        tokens[tokens.length - 1] = numStr(op === "+" || op === "-" ? base * v / 100 : v / 100);
+        justDone = false;
+      } else if (k === "clearTape") {
+        if (!tape.length) return;
+        tape = []; saveTape(); renderTape(); toast("Calculator history deleted");
+        return;
+      } else if (k === "tape") {
+        calcEl.classList.toggle("hide-tape");
+        return;
+      } else if (k === "use") {
+        const val = isOp(last()) ? tokens[tokens.length - 2] : last();
+        if (readOnly) { toast("Go back to today to add numbers"); return; }
+        const r = Math.min(active.r, state.rows.length - 1), c = Math.min(active.c, state.names.length - 1);
+        state.rows[r][c] = val;
+        save(); render();
+        toast("Added " + fmtNum(val) + " to " + (state.names[c] || "Name " + (c + 1)) + " · row " + (r + 1));
+        return;
+      }
+      show();
+    }
+
+    calcEl.querySelectorAll(".ck").forEach(b => {
+      b.addEventListener("pointerdown", e => e.preventDefault());       // keep focus where it is
+      b.addEventListener("click", () => press(b.dataset.c));
+    });
+    // Using the calculator hides the farm keypad on phones so both fit.
+    // Computer keyboard: works when you're not typing in a box.
+    document.addEventListener("keydown", e => {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!calcEl.classList.contains("open") || !histOverlay.hidden || !confirmOverlay.hidden) return;
+      const map = { Enter: "=", "=": "=", Backspace: "back", Escape: "ac", "%": "pct", x: "*", X: "*" };
+      const k = map[e.key] || (/^[0-9.+\-*/]$/.test(e.key) ? e.key : null);
+      if (!k) return;
+      e.preventDefault(); press(k);
+    });
+    // Open / close the calculator sheet.
+    const backdrop = document.getElementById("calcBackdrop");
+    // The calculator takes the number keypad's place at the bottom; the page above still scrolls normally.
+    const openCalc = () => {
+      if (document.activeElement) document.activeElement.blur();
+      pad.hidden = true;
+      calcEl.classList.add("open");
+      tapeEl.scrollTop = tapeEl.scrollHeight;
+      fitPad();
+    };
+    const closeCalc = () => { calcEl.classList.remove("open"); pad.hidden = false; fitPad(); };
+    // Tapping a number box in the table switches back to the number keypad.
+    body.addEventListener("focusin", e => { if (e.target.classList && e.target.classList.contains("num") && calcEl.classList.contains("open")) closeCalc(); });
+    document.getElementById("calcBtn").addEventListener("click", () => { if (calcEl.classList.contains("open")) closeCalc(); else openCalc(); }, true);
+    document.getElementById("calcClose").addEventListener("click", closeCalc);
+    backdrop.addEventListener("click", closeCalc);
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && calcEl.classList.contains("open") && histOverlay.hidden && confirmOverlay.hidden) closeCalc(); });
+    renderTape(); show();
+    /** Start the calculator fresh: empty history and 0 on the display. */
+    function reset() { tape = []; saveTape(); tokens = ["0"]; justDone = false; renderTape(); show(); }
+    window.FarmCalc = { press, reset, get tape() { return tape.slice(); }, get display() { return display.textContent; }, get expr() { return exprEl.textContent; } };
+  })();
+
+  // ---- Date picker, notes and archive panel ----
+  // Small note box: saved with today's record (state.notes).
+  const noteBox = document.getElementById("dayNote");
+  noteBox.addEventListener("input", () => { if (readOnly) return; state.notes = noteBox.value; save(); });
+  // Typing text (a name or the note) uses the phone keyboard, so hide the number keypad to show only one keyboard.
+  document.addEventListener("focusin", e => {
+    if (!TOUCH) return;
+    const el = e.target;
+    if (el.matches && el.matches("input.name, #dayNote")) closePad();
+  });
+  document.getElementById("todayBtn").addEventListener("click", () => { showNotice(""); loadDate(FarmStore.today()); });
+  // If the app stays open past midnight, move on to the new day.
+  const followToday = () => { if (currentDate !== FarmStore.today() && !readOnly) loadDate(FarmStore.today()); };
+
+  /** Runs the 30-day archive pipeline and shows the result. Called on launch, on return to the app, and hourly. */
+  function retention() {
+    const res = FarmStore.runRetention();
+    if (!res.ok) showNotice(res.error, true);
+    updateDayMeta();
+    return res;
+  }
+
+  FarmStore.migrateLegacy();
+  loadDate(FarmStore.today());
+  retention();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    followToday();
+    const res = retention();
+    if (res.archived && res.dates.includes(currentDate)) loadDate(currentDate);
+  });
+  setInterval(() => { followToday(); const res = retention(); if (res.archived && res.dates.includes(currentDate)) loadDate(currentDate); }, 60 * 60 * 1000);
+
+  showTarget();
+  fitPad();
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {})); }
+</script>
+</body>
+</html>

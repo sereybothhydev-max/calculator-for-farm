@@ -1,0 +1,26 @@
+Calculator for Farm — iPhone app (Xcode)
+
+What is in this folder
+  ContentView.swift   the app code (paste it into your Xcode project)
+  web/                the calculator itself (drag this folder into Xcode)
+  AppIcon-1024.png    the app icon (black plus)
+
+Steps (short version)
+  1. Xcode > Settings > Accounts > "+" > Apple ID, sign in.
+  2. File > New > Project > iOS > App > Next.
+     Product Name: CalculatorForFarm   Interface: SwiftUI   Language: Swift
+     Team: your Apple account.
+  3. Open ContentView.swift in Xcode, delete everything, paste this folder's ContentView.swift.
+  4. Drag the "web" folder into the left sidebar of Xcode.
+     Tick "Copy items if needed" and your app target, then Finish.
+  5. Assets > AppIcon: drag AppIcon-1024.png into the empty icon box.
+  6. Target > General > Display Name: Calculator for Farm
+  7. Plug in the iPhone, pick it at the top of Xcode, press the Play button.
+  8. On the iPhone (first time only):
+     - Settings > Privacy & Security > Developer Mode > On (phone restarts)
+     - Settings > General > VPN & Device Management > your Apple ID > Trust
+
+Free Apple ID: the app stops opening after 7 days. Connect the iPhone and press
+Play again; your saved numbers stay.
+Paid Apple Developer Program (US$99/year): the app lasts a year and can be shared
+with TestFlight.
